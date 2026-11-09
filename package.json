@@ -15,7 +15,8 @@
     "play": "node serve-game.mjs",
     "dev:client": "vite --host 0.0.0.0",
     "server": "node --env-file-if-exists=.env --import tsx server/index.ts",
-    "start": "node --env-file-if-exists=.env --import tsx server/index.ts"
+    "start": "node --env-file-if-exists=.env --import tsx server/index.ts",
+    "test:cinematic": "playwright test --config playwright.cinematic.config.ts"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.3.0",

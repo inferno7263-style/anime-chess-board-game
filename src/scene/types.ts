@@ -1,4 +1,5 @@
 import type { Square } from 'chess.js'
+import type { CharacterAnimation } from './characterAnimation'
 
 export type Character = {
   id: string
@@ -34,5 +35,11 @@ export type ChessSceneProps = {
   lastMove: { from: Square; to: Square } | null
   flipped: boolean
   showAuras: boolean
+  animationPreview?: CharacterAnimation
+  defeatedKing?: 'naruto' | 'madara' | null
+  cinematicEffects?: boolean
+  sceneKey?: string
+  skipCinematic?: number
+  onCinematicChange?: (active: boolean) => void
   quality?: 'high' | 'low'
 }

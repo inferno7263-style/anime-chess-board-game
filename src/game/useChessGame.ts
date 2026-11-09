@@ -7,7 +7,7 @@ import { initialOnlineMode, replayOnlineGame, useOnlineGame } from '../online/us
 export type GameMode = 'local' | 'ai' | 'online';
 
 /** Local/AI share their original game; online views are always server snapshots. */
-export function useChessGame() {
+export function useChessGame(presentationPaused = false, onKingCapture?: () => void) {
   const localGameRef = useRef(new Chess());
   const engineRef = useRef<StockfishClient | null>(null);
   const [localFen, setLocalFen] = useState(localGameRef.current.fen());
@@ -66,9 +66,10 @@ export function useChessGame() {
     }
     const result = tryMove(localGameRef.current, { from, to, ...(promotion ? { promotion } : {}) });
     if (!result) return false;
+    if(result.captured && result.piece==='k') onKingCapture?.();
     syncLocal();
     return true;
-  }, [game, isGameOver, mode, online.canMove, online.sendMove, pendingPromotion, syncLocal]);
+  }, [game, isGameOver, mode, online.canMove, online.sendMove, pendingPromotion, syncLocal, onKingCapture]);
 
   const selectSquare = useCallback((square: Square) => {
     if (pendingPromotion || isGameOver || (mode === 'ai' && game.turn() === 'b') || (mode === 'online' && !online.canMove)) return;
@@ -88,7 +89,7 @@ export function useChessGame() {
   }, [mode, online.canMove, online.sendMove, pendingPromotion, syncLocal]);
 
   useEffect(() => {
-    if (mode !== 'ai' || localGameRef.current.turn() !== 'b' || localGameRef.current.isGameOver() || !aiReady || aiError) {
+    if (presentationPaused || mode !== 'ai' || localGameRef.current.turn() !== 'b' || localGameRef.current.isGameOver() || !aiReady || aiError) {
       setAiThinking(false);
       return;
     }
@@ -100,11 +101,12 @@ export function useChessGame() {
       if (!active) return;
       setAiThinking(false);
       if (!request || localGameRef.current.fen() !== localFen) return;
-      if (tryMove(localGameRef.current, request)) syncLocal();
+      const result = tryMove(localGameRef.current, request);
+      if (result) { if(result.captured && result.piece==='k') onKingCapture?.(); syncLocal(); }
       else setAiError('Stockfish returned an invalid move. Switch to a local match to continue.');
     });
     return () => { active = false; engine.cancel(); };
-  }, [localFen, mode, aiReady, aiError, syncLocal]);
+  }, [localFen, mode, aiReady, aiError, syncLocal, presentationPaused, onKingCapture]);
 
   const undo = useCallback(() => {
     if (mode === 'online') return;

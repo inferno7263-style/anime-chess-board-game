@@ -1,0 +1,111 @@
+import { expect, test, type Page } from '@playwright/test';
+import { PerspectiveCamera, Vector3 } from 'three';
+import { getSceneFov, sceneCameraPosition, sceneCameraTarget } from '../src/scene/camera';
+const square=(page:Page,id:string)=>page.getByRole('button',{name:new RegExp(`^${id}(?:,|$)`)});
+async function open(page:Page){
+  await page.goto('/',{waitUntil:'domcontentloaded'});
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByRole('combobox').selectOption('low');
+  await page.getByRole('button',{name:'Close dialog',exact:true}).click();
+}
+async function preview(page:Page,id:string){
+  await page.getByRole('button',{name:'Settings',exact:true}).click();
+  await page.getByRole('button',{name:`Preview ${id} attack`,exact:true}).click();
+}
+async function move(page:Page,from:string,to:string){await square(page,from).click();await square(page,to).click();}
+
+test('Naruto and Madara close-up battles complete and leave the chess position unchanged',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await open(page);
+  for(const id of ['naruto','madara']){
+    await preview(page,id);
+    const battle=page.getByTestId('battle-cinematic');
+    await expect(battle).toBeVisible();
+    await expect(battle).toContainText(id==='naruto'?'RASENGAN':'SUSANOO STRIKE');
+    await expect(page.getByRole('button',{name:'Skip animation'})).toBeVisible();
+    if(id==='naruto'){
+      await expect(battle).toHaveAttribute('data-phase',/strike|defeat/);
+      await page.screenshot({path:'/tmp/naruto-finishing-closeup.png',fullPage:true});
+    }
+    await expect(battle).toHaveCount(0);
+    await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
+  }
+  expect(errors).toEqual([]);
+});
+
+test('skip restores board interaction and Stockfish continues working',async({page})=>{
+  await open(page);await preview(page,'madara');
+  await page.getByRole('button',{name:'Skip animation'}).click();
+  await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+  await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+  await page.getByRole('button',{name:'vs. Computer',exact:true}).click();
+  await move(page,'e2','e4');
+  await expect(page.locator('.count-badge')).toHaveText('02 MOVES',{timeout:30000});
+  await expect(page.locator('.match-status strong')).toHaveText('Heroes to move');
+});
+
+test('a legal Naruto capture uses the actual victim and undo cancels the visual replay',async({page})=>{
+  await open(page);
+  await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+  for(const [from,to] of [['e2','e4'],['d7','d5'],['e1','e2'],['d5','e4'],['e2','e3'],['a7','a6']]) await move(page,from,to);
+  await page.getByRole('button',{name:'3D view',exact:true}).click();
+  await page.waitForTimeout(500);
+  const bounds=(await page.locator('canvas').boundingBox())!;
+  const camera=new PerspectiveCamera(getSceneFov(bounds.width/bounds.height),bounds.width/bounds.height,.1,100);
+  camera.position.set(...sceneCameraPosition);camera.lookAt(...sceneCameraTarget);camera.updateMatrixWorld();
+  const project=(x:number,y:number,z:number)=>{const v=new Vector3(x,y,z).project(camera);return{x:bounds.x+(v.x+1)*bounds.width/2,y:bounds.y+(1-v.y)*bounds.height/2}};
+  const from=project(.5,.8,1.5),to=project(.5,.5,.5);
+  await page.mouse.click(from.x,from.y);
+  await expect(page.locator('.selection-toast strong')).toContainText('Naruto');
+  await page.mouse.click(to.x,to.y);
+  await expect(page.getByTestId('battle-cinematic')).toContainText('Blackbeard');
+  await expect(page.locator('.count-badge')).toHaveText('07 MOVES');
+  await page.getByRole('button',{name:'Undo move',exact:true}).click();
+  await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+  await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+  await expect(square(page,'e3')).toHaveAttribute('aria-label',/Naruto/);
+  await expect(square(page,'e4')).toHaveAttribute('aria-label',/Blackbeard/);
+  await expect(page.locator('.count-badge')).toHaveText('06 MOVES');
+});
+
+test('reduced motion keeps the board camera and allows non-cinematic effects',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await open(page);await preview(page,'naruto');
+  await expect(page.getByText('RASENGAN',{exact:true})).toBeVisible();
+  await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Skip animation'})).toHaveCount(0);
+  await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
+});
+
+test('Stockfish waits for the capture close-up then resumes its legal reply',async({page})=>{
+  await open(page);
+  await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+  for(const [from,to] of [['e2','e4'],['d7','d5'],['e1','e2'],['d5','e4'],['e2','e3'],['a7','a6']]) await move(page,from,to);
+  await page.getByRole('button',{name:'vs. Computer',exact:true}).click();
+  await page.getByRole('button',{name:'3D view',exact:true}).click();
+  await page.waitForTimeout(500);
+  const bounds=(await page.locator('canvas').boundingBox())!;
+  const camera=new PerspectiveCamera(getSceneFov(bounds.width/bounds.height),bounds.width/bounds.height,.1,100);
+  camera.position.set(...sceneCameraPosition);camera.lookAt(...sceneCameraTarget);camera.updateMatrixWorld();
+  const project=(x:number,y:number,z:number)=>{const v=new Vector3(x,y,z).project(camera);return{x:bounds.x+(v.x+1)*bounds.width/2,y:bounds.y+(1-v.y)*bounds.height/2}};
+  const from=project(.5,.8,1.5),to=project(.5,.5,.5);
+  await page.mouse.click(from.x,from.y);
+  await expect(page.locator('.selection-toast strong')).toContainText('Naruto');
+  await page.evaluate(()=>{
+    (window as any).battleCounts=[];
+    const observer=new MutationObserver(()=>{
+      if(document.querySelector('[data-testid="battle-cinematic"]')) (window as any).battleCounts.push(document.querySelector('.count-badge')?.textContent);
+    });
+    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+    (window as any).battleObserver=observer;
+  });
+  await page.getByRole('button',{name:'Capture to E4',exact:true}).click();
+  await expect(page.getByTestId('battle-cinematic')).toContainText('Blackbeard');
+
+  await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+  await expect(page.locator('.count-badge')).toHaveText('08 MOVES',{timeout:30000});
+  await expect(page.locator('.match-status strong')).toHaveText('Heroes to move');
+  const counts=await page.evaluate(()=>{(window as any).battleObserver.disconnect();return (window as any).battleCounts as string[];});
+  expect(counts.length).toBeGreaterThan(0);
+  expect(counts.every(value=>value==='07 MOVES')).toBe(true);
+});

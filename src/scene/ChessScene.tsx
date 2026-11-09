@@ -4,6 +4,10 @@ import { Billboard, Html, Line, OrbitControls, RoundedBox } from '@react-three/d
 import { CanvasTexture, Group, MOUSE, PerspectiveCamera, Plane, SRGBColorSpace, Vector3 } from 'three'
 import type { Square } from 'chess.js'
 import Figurine from './Figurine'
+import CharacterPerformance from './CharacterPerformance'
+import BattleCinematic, { type CameraView } from './BattleCinematic'
+import { captureBattle, type BattleEvent } from './battleTimeline'
+import { capturePerformer, type CharacterAnimation } from './characterAnimation'
 import type { BoardPiece, ChessSceneProps } from './types'
 import { getSceneFov, sceneCameraPosition, sceneCameraTarget } from './camera'
 
@@ -93,7 +97,7 @@ function PromotedRoleBadge({role}:{role:BoardPiece['character']['piece']}) {
   return <Billboard position={[0,1.38,0]}><mesh><planeGeometry args={[.32,.32]}/><meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false}/></mesh></Billboard>
 }
 
-function AnimatedPiece({piece,onSquareClick,onMove,onDragging,showAuras,selected}:{piece:BoardPiece;onSquareClick:ChessSceneProps['onSquareClick'];onMove:ChessSceneProps['onMove'];onDragging:(v:boolean)=>void;showAuras:boolean;selected:boolean}) {
+function AnimatedPiece({piece,onSquareClick,onMove,onDragging,showAuras,selected,animation,lowQuality,reducedMotion}:{animation?:CharacterAnimation;lowQuality:boolean;reducedMotion:boolean;piece:BoardPiece;onSquareClick:ChessSceneProps['onSquareClick'];onMove:ChessSceneProps['onMove'];onDragging:(v:boolean)=>void;showAuras:boolean;selected:boolean}) {
   const group=useRef<Group>(null!),drag=useRef<Drag|null>(null)
   const [hovered,setHovered]=useState(false)
   const target=useMemo(()=>new Vector3(...squarePosition(piece.square)).setY(.06),[piece.square])
@@ -126,7 +130,7 @@ function AnimatedPiece({piece,onSquareClick,onMove,onDragging,showAuras,selected
     else if(!current.moved)onSquareClick(current.from)
   }
   return <group ref={group} onPointerDown={down} onPointerMove={move} onPointerUp={up} onClick={e=>e.stopPropagation()} onPointerOver={e=>{e.stopPropagation();if(!drag.current)setHovered(true);document.body.style.cursor='grab'}} onPointerOut={()=>{setHovered(false);document.body.style.cursor='auto'}}>
-    <group rotation={[0,piece.character.color==='w'?0:Math.PI,0]}><Figurine character={piece.character}/></group>
+    <group rotation={[0,piece.character.color==='w'?0:Math.PI,0]}><CharacterPerformance character={piece.character} animation={animation} lowQuality={lowQuality} reducedMotion={reducedMotion}/></group>
     <PromotedRoleBadge role={piece.character.piece}/>
     {hovered&&<Html position={[0,1.55,0]} center zIndexRange={[20,0]} style={{pointerEvents:'none',whiteSpace:'nowrap'}}><div className="piece-tooltip" style={{background:'#14201ef0',border:'1px solid #8c7b4e',borderRadius:4,padding:'8px 11px',boxShadow:'0 6px 18px #0006',color:'#eee8d5',fontFamily:'Arial,sans-serif'}}><strong style={{display:'block',fontSize:11,fontWeight:600}}>{piece.character.name}</strong><span style={{display:'block',marginTop:4,fontSize:9,color:'#b2b6a6'}}>{piece.character.role} · {piece.square.toUpperCase()}</span></div></Html>}
     {showAuras&&<mesh position={[0,.015,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[selected?.31:.29,selected?.38:.315,32]}/><meshBasicMaterial color={piece.character.accent} transparent opacity={selected?.7:.28} toneMapped={false} depthWrite={false}/></mesh>}
@@ -171,8 +175,46 @@ function Camera({flipped}:{flipped:boolean}) {
 function World(props:ChessSceneProps) {
   const [dragging,setDragging]=useState(false),[captured,setCaptured]=useState<BoardPiece[]>([])
   const previous=useRef(props.pieces)
+  const [animations,setAnimations]=useState<CharacterAnimation[]>([])
+  const sequence=useRef(0)
+  const [battle,setBattle]=useState<BattleEvent|null>(null)
+  const {camera}=useThree()
+  const originalView=useRef<CameraView|null>(null)
+  useEffect(()=>{if(!battle)originalView.current=null},[Boolean(battle)])
+  const [boardRevealed,setBoardRevealed]=useState(false)
+  const beginBattle=(event:Omit<BattleEvent,'nonce'>)=>{if(!originalView.current)originalView.current={position:camera.position.clone(),rotation:camera.quaternion.clone(),fov:(camera as PerspectiveCamera).fov};setBoardRevealed(false);setCaptured([]);setBattle({...event,nonce:++sequence.current})}
+  useEffect(()=>{props.onCinematicChange?.(Boolean(battle));return()=>props.onCinematicChange?.(false)},[Boolean(battle),props.onCinematicChange])
+  useEffect(()=>{setBattle(null)},[props.skipCinematic,props.cinematicEffects])
+  useEffect(()=>{setBattle(null);setAnimations([]);previous.current=props.pieces},[props.sceneKey])
+  const reducedMotion=useMemo(()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches,[])
+  const perform=(characterId:'naruto'|'madara',kind:'attack'|'defeat')=>setAnimations(old=>[...old.filter(a=>a.characterId!==characterId),{characterId,kind,nonce:++sequence.current}])
   useEffect(()=>{
-    if(previous.current.length===props.pieces.length+1){const ids=new Set(props.pieces.map(p=>p.character.id));setCaptured(old=>[...old,...previous.current.filter(p=>!ids.has(p.character.id))])}
+    const preview=props.animationPreview
+    if(!preview || props.cinematicEffects===false) return
+    if(reducedMotion){perform(preview.characterId,preview.kind);return}
+    const subject=props.pieces.find(p=>p.character.id===preview.characterId)
+    const opponent=props.pieces.find(p=>p.character.piece==='k' && p.character.color!==subject?.character.color)
+    if(subject && opponent) beginBattle({attacker:preview.kind==='attack'?subject:opponent,victim:preview.kind==='attack'?opponent:subject,kind:preview.kind,preview:true})
+  },[props.animationPreview?.nonce])
+  useEffect(()=>{
+    if(!props.defeatedKing || props.cinematicEffects===false) return
+    if(reducedMotion){perform(props.defeatedKing,'defeat');return}
+    const victim=props.pieces.find(p=>p.character.id===props.defeatedKing)
+    const attacker=props.pieces.find(p=>p.square===props.lastMove?.to && p.character.color!==victim?.character.color)
+    if(victim && attacker) beginBattle({attacker,victim,kind:attacker.character.id==='naruto'||attacker.character.id==='madara'?'attack':'defeat'})
+  },[props.defeatedKing,props.cinematicEffects])
+  useEffect(()=>{
+    const changed=previous.current.map(p=>p.character.id+':'+p.square).join('|')!==props.pieces.map(p=>p.character.id+':'+p.square).join('|')
+    if(changed && battle) setBattle(null)
+    if(previous.current.length===props.pieces.length+1){
+      const attacker=capturePerformer(previous.current,props.pieces,props.lastMove)
+      const event=captureBattle(previous.current,props.pieces,props.lastMove)
+      if(props.cinematicEffects!==false && event && !reducedMotion && !props.defeatedKing) beginBattle(event)
+      else {
+        if(props.cinematicEffects!==false && attacker) perform(attacker,'attack')
+        const ids=new Set(props.pieces.map(p=>p.character.id));setCaptured(old=>[...old,...previous.current.filter(p=>!ids.has(p.character.id))])
+      }}
+    if(props.pieces.length>previous.current.length){setAnimations([]);setBattle(null)}
     previous.current=props.pieces
   },[props.pieces])
   return <>
@@ -182,11 +224,14 @@ function World(props:ChessSceneProps) {
     <directionalLight position={[-5,12,7]} intensity={3} color="#fff4db" castShadow shadow-mapSize={props.quality==='low'?[1024,1024]:[2048,2048]} shadow-camera-left={-7} shadow-camera-right={7} shadow-camera-top={7} shadow-camera-bottom={-7} shadow-camera-near={.5} shadow-camera-far={32} shadow-bias={-.00005} shadow-normalBias={.018} shadow-radius={3}/>
     <directionalLight position={[5,5,-7]} intensity={2.3} color="#8db6b6"/>
     <pointLight position={[-6,3,-3]} intensity={10} color="#718e79" distance={18}/>
+    {(!battle || boardRevealed)&&<>
     <Board selected={props.selected} legalSquares={props.legalSquares} onSquareClick={props.onSquareClick} lastMove={props.lastMove} occupiedSquares={props.pieces.map(p=>p.square)} captureSquares={props.captureSquares}/>
-    {props.pieces.map(piece=><AnimatedPiece key={piece.character.id} piece={piece} onSquareClick={props.onSquareClick} onMove={props.onMove} onDragging={setDragging} showAuras={props.showAuras} selected={props.selected===piece.square}/>)}
+    {props.pieces.map(piece=><AnimatedPiece key={piece.character.id} piece={piece} onSquareClick={props.onSquareClick} onMove={props.onMove} onDragging={setDragging} showAuras={props.showAuras} animation={props.cinematicEffects===false?undefined:animations.find(a=>a.characterId===piece.character.id)} lowQuality={props.quality==='low'} reducedMotion={reducedMotion} selected={props.selected===piece.square}/>)}
     {captured.map(piece=><CaptureBurst key={piece.character.id} piece={piece} onDone={()=>setCaptured(old=>old.filter(p=>p.character.id!==piece.character.id))}/>)}
-    <Camera flipped={props.flipped}/>
-    <OrbitControls makeDefault target={sceneCameraTarget} minDistance={11} maxDistance={25} minPolarAngle={.25} maxPolarAngle={1.12} enablePan={false} enableRotate={!dragging} enableDamping dampingFactor={.08} mouseButtons={{LEFT:undefined as unknown as MOUSE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.ROTATE}}/>
+    </>}
+    {battle&&<BattleCinematic key={battle.nonce} originalView={originalView.current!} battle={battle} lowQuality={props.quality==='low'} onReveal={()=>setBoardRevealed(true)} onDone={()=>setBattle(null)}/>}
+    {!battle&&<Camera flipped={props.flipped}/>}
+    <OrbitControls makeDefault enabled={!battle} target={sceneCameraTarget} minDistance={11} maxDistance={25} minPolarAngle={.25} maxPolarAngle={1.12} enablePan={false} enableRotate={!dragging} enableDamping dampingFactor={.08} mouseButtons={{LEFT:undefined as unknown as MOUSE,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.ROTATE}}/>
   </>
 }
 

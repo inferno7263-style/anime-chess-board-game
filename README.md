@@ -2,6 +2,10 @@
 
 A playable cinematic chess game with the user's exact 32-character Heroes Alliance / Villains Alliance roster. React 19, TypeScript, Three.js, React Three Fiber, Chess.js and local Stockfish 17.1 WASM. Local and AI modes need no backend. Private online games use the included Node.js / Socket.IO server; no account or API key is required.
 
+## Deploy on Render
+
+Use the included `render.yaml` Blueprint. Follow [the Render deployment steps](docs/RENDER_DEPLOYMENT.md) to publish all three game modes on one service.
+
 ## Online Multiplayer
 
 Private rooms, invitation links, automatic White/Black seats, authoritative server-side Chess.js validation, synchronized games and reconnect support are implemented. Start both services with `npm run dev`, or build and run `npm start` for the complete production game. See [backend configuration, deployment and lifecycle](docs/ONLINE_MULTIPLAYER.md).

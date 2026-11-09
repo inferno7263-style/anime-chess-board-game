@@ -1,5 +1,6 @@
 import { Component, Suspense, useMemo, type ReactNode } from 'react'
 import { useGLTF } from '@react-three/drei'
+import { posePlaceholderArms } from './placeholderPose'
 import type { Character } from './types'
 
 class ModelBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
@@ -8,13 +9,14 @@ class ModelBoundary extends Component<{ children: ReactNode; fallback: ReactNode
   render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 
-function GLBFigurine({ url }: { url: string }) {
+function GLBFigurine({ url, attackPose = false }: { url: string; attackPose?: boolean }) {
   const { scene } = useGLTF(url)
   const model = useMemo(() => {
     const copy = scene.clone(true)
     copy.traverse(object => { object.castShadow = true; object.receiveShadow = true })
+    if (attackPose) posePlaceholderArms(copy)
     return copy
-  }, [scene])
+  }, [scene, attackPose])
   return <primitive object={model} />
 }
 
@@ -47,9 +49,9 @@ function ProceduralFigurine({ character }: { character: Character }) {
   </group>
 }
 
-export default function Figurine({ character }: { character: Character }) {
+export default function Figurine({ character, attackPose = false }: { character: Character; attackPose?: boolean }) {
   const fallback = <ProceduralFigurine character={character}/>
   return character.modelUrl
-    ? <ModelBoundary fallback={fallback}><Suspense fallback={fallback}><GLBFigurine url={character.modelUrl}/></Suspense></ModelBoundary>
+    ? <ModelBoundary fallback={fallback}><Suspense fallback={fallback}><GLBFigurine url={character.modelUrl} attackPose={attackPose}/></Suspense></ModelBoundary>
     : fallback
 }

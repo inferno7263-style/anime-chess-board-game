@@ -1,0 +1,29 @@
+# One process owns room state and serves both the website and Socket.IO.
+services:
+  - type: web
+    name: anime-chess-multiverse-war
+    runtime: node
+    plan: free
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: SERVE_CLIENT
+        value: 'true'
+      - key: RECONNECT_GRACE_MS
+        value: '120000'
+      - key: WAITING_ROOM_TTL_MS
+        value: '900000'
+      - key: FINISHED_ROOM_TTL_MS
+        value: '900000'
+      - key: ROOM_LIFETIME_MS
+        value: '86400000'
+      - key: MAX_ROOMS
+        value: '1000'
