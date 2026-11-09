@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { AdditiveBlending, Group, Mesh } from 'three';
 import Figurine from './Figurine';
+import TechniqueEnergy from './TechniqueEnergy';
+import { hasReferenceEffect, isAnimatedCharacter, techniques } from './techniques';
 import type { Character } from './types';
 import { animationDuration, animationPose, type CharacterAnimation } from './characterAnimation';
 
@@ -18,7 +20,8 @@ export default function CharacterPerformance({ character, animation, lowQuality,
   const [playing, setPlaying] = useState(false);
   useEffect(() => { elapsed.current = 0; started.current = performance.now(); setPlaying(Boolean(animation)); }, [animation?.nonce, animation?.kind]);
   const naruto = character.id === 'naruto';
-  const color = naruto ? '#61eaff' : '#899dff';
+  const reference = hasReferenceEffect(character.id);
+  const color = isAnimatedCharacter(character.id) ? techniques[character.id].color : '#899dff';
   useFrame((_, delta) => {
     if (!playing || !animation) {
       body.current.rotation.set(0, 0, 0); body.current.position.set(0, 0, 0); return;
@@ -44,9 +47,9 @@ export default function CharacterPerformance({ character, animation, lowQuality,
   return <>
     <group ref={body}><Figurine character={character}/></group>
     {playing && animation && <>
-      <Html position={[0, naruto ? 1.85 : 2.8, 0]} center style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }} zIndexRange={[25,0]}><span className="technique-label" style={{ borderColor: color, color }} role="status">{animation.kind === 'defeat' ? `${naruto ? 'NARUTO' : 'MADARA'} · DEFEATED` : naruto ? 'RASENGAN' : 'SUSANOO · SHOCKWAVE'}</span></Html>
+      <Html position={[0, naruto ? 1.85 : 2.8, 0]} center style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }} zIndexRange={[25,0]}><span className="technique-label" style={{ borderColor: color, color }} role="status">{animation.kind === 'defeat' ? `${character.name.toUpperCase()} · DEFEATED` : isAnimatedCharacter(character.id) ? techniques[character.id].name : 'IMPACT'}</span></Html>
       <group ref={effects} raycast={()=>null}>
-        {animation.kind === 'attack' ? naruto ? <group position={[.32,.8,.48]}>
+        {reference ? <TechniqueEnergy key={animation.nonce} characterId={animation.characterId} lowQuality={lowQuality} reducedMotion={reducedMotion} defeat={animation.kind==='defeat'}/> : animation.kind === 'attack' ? naruto ? <group position={[.32,.8,.48]}>
           <mesh ref={orb}><sphereGeometry args={[.23,lowQuality?12:24,16]}/><meshBasicMaterial color="#bfffff" transparent blending={AdditiveBlending} depthWrite={false}/></mesh>
           {[0,1,2].map(i=><mesh key={i} rotation={[i*1.1,i*.9,Math.PI/3]}><torusGeometry args={[.32+i*.055,.014,6,48]}/><meshBasicMaterial color={color} transparent blending={AdditiveBlending} depthWrite={false}/></mesh>)}
           {Array.from({length:lowQuality?10:24},(_,i)=><mesh key={i} position={[Math.cos(i*2.4)*(.35+i*.012),Math.sin(i*1.7)*.4,Math.sin(i*2.4)*.35]}><sphereGeometry args={[.018,6,4]}/><meshBasicMaterial color={color} transparent blending={AdditiveBlending} depthWrite={false}/></mesh>)}

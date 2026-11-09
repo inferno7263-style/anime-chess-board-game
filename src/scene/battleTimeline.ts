@@ -1,5 +1,6 @@
 import type { BoardPiece } from './types';
 import { capturePerformer } from './characterAnimation';
+import { hasReferenceEffect } from './techniques';
 export const BATTLE_DURATION = 4.2;
 export const IMPACT_AT = 1.55;
 export const RETURN_AT = 3.35;
@@ -22,10 +23,12 @@ export type BattleEvent = { attacker: BoardPiece; victim: BoardPiece; nonce: num
 /** Derive participants from a committed capture, never from a selection or undo. */
 export function captureBattle(before: BoardPiece[], after: BoardPiece[], move: {from: string;to: string} | null): Omit<BattleEvent,'nonce'> | null {
   const id = capturePerformer(before, after, move);
-  if (!id || !move) return null;
-  const attacker = after.find(p => p.character.id === id)!;
-  const victim = before.find(p => p.square === move.to && p.character.color !== attacker.character.color);
-  return victim ? { attacker, victim, kind: 'attack' } : null;
+  if (!move || before.length!==after.length+1) return null;
+  const attacker = after.find(p => p.square===move.to);
+  if(!attacker || !before.some(p=>p.square===move.from && p.character.id===attacker.character.id)) return null;
+  const remaining=new Set(after.map(p=>p.character.id));
+  const victim = before.find(p => !remaining.has(p.character.id) && p.character.color !== attacker.character.color);
+  return victim && (id || hasReferenceEffect(victim.character.id)) ? { attacker, victim, kind: id?'attack':'defeat' } : null;
 }
 /** Contact point follows the target's chest, not a fixed orb beside the attacker. */
 export function contactPoint(victim: BoardPiece): [number,number,number] {

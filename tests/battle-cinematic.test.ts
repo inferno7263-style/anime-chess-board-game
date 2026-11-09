@@ -41,3 +41,27 @@ describe('cinematic battle sequencing',()=>{
     expect(captureBattle(before,after,{from:'a8',to:'e3'})).toBeNull();
   });
 });
+
+it('Mikasa en passant targets the captured pawn square and does not mutate history',()=>{
+  const game=new Chess();
+  for(const san of ['c4','a6','c5','b5'])game.move(san);
+  const before=derivePieces(game.history({verbose:true}));
+  const move=game.move('cxb6');
+  const after=derivePieces(game.history({verbose:true}));
+  const fen=game.fen();
+  const event=captureBattle(before,after,move);
+  expect(event?.attacker.character.id).toBe('mikasa');
+  expect(event?.victim.character.id).toBe('pain');
+  expect(event?.victim.square).toBe('b5');
+  expect(game.fen()).toBe(fen);
+});
+it('a captured Nezuko triggers her own defeat effect against the actual attacker',()=>{
+  const game=new Chess();
+  for(const san of ['h4','g5','a3'])game.move(san);
+  const before=derivePieces(game.history({verbose:true}));
+  const move=game.move('gxh4');
+  const event=captureBattle(before,derivePieces(game.history({verbose:true})),move);
+  expect(event?.kind).toBe('defeat');
+  expect(event?.victim.character.id).toBe('nezuko');
+  expect(event?.attacker.character.id).toBe('zeke');
+});

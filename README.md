@@ -92,3 +92,9 @@ npm run prepare:engine  # Re-copy installed engine assets
 ## Stockfish licensing
 
 Stockfish is GPLv3. The engine's license, attribution, version, and corresponding source links are supplied in `public/engine/`. This original fan-made game is unaffiliated with the anime rights holders. No official character assets are bundled.
+
+## Character animation effects
+
+Settings → Character animation previews now includes Asta (Black Divider), Mikasa (ODM cross slash), Nezuko (Exploding Blood) and Sung Jin-Woo (shadow dagger rush), alongside Naruto and Madara. Each has attack/defeat previews; these never modify the position. Confirmed captures use the actual attacker and victim, including en passant. The four new characters also have short arrival effects on ordinary confirmed moves. Capturing one of them can trigger its defeat effect.
+
+The effects are original procedural Three.js geometry inspired by the supplied visual references: black/red lightning blades, orange sweeping slash ribbons, pink flame energy, and violet enchanted daggers. They are not imported skeletal animation clips or copies of the reference images. They reuse the existing cinematic camera, skip control, performance setting and reduced-motion behavior. `src/scene/techniques.ts` holds the effect names/colors; `TechniqueEnergy.tsx` builds the visuals. Chess.js and the multiplayer server remain the sole authorities for moves.

@@ -109,3 +109,49 @@ test('Stockfish waits for the capture close-up then resumes its legal reply',asy
   expect(counts.length).toBeGreaterThan(0);
   expect(counts.every(value=>value==='07 MOVES')).toBe(true);
 });
+
+test('four reference-inspired attacks and defeats complete without changing chess state',async({page})=>{
+  test.setTimeout(180000);
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await open(page);
+  const names={asta:'BLACK DIVIDER',mikasa:'ODM · CROSS SLASH',nezuko:'EXPLODING BLOOD','sung-jinwoo':'SHADOW MONARCH · DAGGER RUSH'};
+  for(const [id,name] of Object.entries(names)){
+    for(const kind of ['attack','defeat']){
+      await page.getByRole('button',{name:'Settings',exact:true}).click();
+      await page.getByRole('button',{name:`Preview ${id} ${kind}`,exact:true}).click();
+      const battle=page.getByTestId('battle-cinematic');
+      await expect(battle).toBeVisible();
+      await expect(battle).toContainText(kind==='attack'?name:'DEFEAT');
+      if(kind==='attack'){
+        await expect(battle).toHaveAttribute('data-phase',/strike|defeat/);
+        await page.screenshot({path:`/tmp/${id}-reference-effect.png`});
+      }
+      await expect(battle).toHaveCount(0);
+      await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test('a confirmed Mikasa capture launches her cross slash and undo restores both figures',async({page})=>{
+  await open(page);
+  await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+  await move(page,'c2','c4');await move(page,'d7','d5');
+  await page.getByRole('button',{name:'3D view',exact:true}).click();
+  await page.waitForTimeout(700);
+  const bounds=(await page.locator('canvas').boundingBox())!;
+  const camera=new PerspectiveCamera(getSceneFov(bounds.width/bounds.height),bounds.width/bounds.height,.1,100);
+  camera.position.set(...sceneCameraPosition);camera.lookAt(...sceneCameraTarget);camera.updateMatrixWorld();
+  const v=new Vector3(-1.5,.55,.5).project(camera);
+  await page.mouse.click(bounds.x+(v.x+1)*bounds.width/2,bounds.y+(1-v.y)*bounds.height/2);
+  await expect(page.locator('.selection-toast strong')).toContainText('Mikasa');
+  await page.getByRole('button',{name:'Capture to D5',exact:true}).click();
+  await expect(page.getByTestId('battle-cinematic')).toContainText('ODM · CROSS SLASH');
+  await expect(page.getByTestId('battle-cinematic')).toContainText('Blackbeard');
+  await expect(page.locator('.count-badge')).toHaveText('03 MOVES');
+  await page.getByRole('button',{name:'Undo move',exact:true}).click();
+  await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+  await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+  await expect(square(page,'c4')).toHaveAttribute('aria-label',/Mikasa/);
+  await expect(square(page,'d5')).toHaveAttribute('aria-label',/Blackbeard/);
+});

@@ -3,6 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { AdditiveBlending, Group, Mesh, PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import Figurine from './Figurine';
+import TechniqueEnergy from './TechniqueEnergy';
+import { hasReferenceEffect, isAnimatedCharacter, techniques } from './techniques';
 import { battleFrame, contactPoint, IMPACT_AT, type BattleEvent } from './battleTimeline';
 
 export type CameraView = { position: Vector3; rotation: Quaternion; fov: number };
@@ -24,7 +26,10 @@ export default function BattleCinematic({ originalView, battle, lowQuality, onRe
   const [returning, setReturning] = useState(false);
   const naruto = battle.attacker.character.id === 'naruto';
   const madara = battle.attacker.character.id === 'madara';
-  const color = naruto ? '#64edff' : '#9daaff';
+  const characterId=battle.attacker.character.id;
+  const reference=hasReferenceEffect(characterId) && isAnimatedCharacter(characterId);
+  const effectId=battle.kind==='defeat'?battle.victim.character.id:characterId;
+  const color=isAnimatedCharacter(effectId)?techniques[effectId].color:'#9daaff';
   const target = useMemo(() => new Vector3(...contactPoint(battle.victim)), [battle.victim]);
   const charge = useMemo(() => new Vector3(-.58, .75, .18), []);
   useEffect(() => () => {
@@ -53,7 +58,11 @@ export default function BattleCinematic({ originalView, battle, lowQuality, onRe
     victim.current.rotation.x = -1.4 * f.fall;
     victim.current.position.y = -.02 * f.fall;
     orb.current.position.copy(charge).lerp(target, attack ? f.approach : 1);
-    orb.current.rotation.set(elapsed * 3, elapsed * 5, elapsed * 2);
+    orb.current.rotation.set(reference?0:elapsed * 3, reference?0:elapsed * 5, reference?0:elapsed * 2);
+    if(reference && battle.kind==='attack'){
+      attacker.current.rotation.z=characterId==='mikasa'?Math.sin(f.approach*Math.PI)*.6:0;
+      attacker.current.position.y=characterId==='mikasa'?.35*Math.sin(f.approach*Math.PI):characterId==='nezuko'?.16*Math.sin(f.approach*Math.PI):0;
+    }
     const energy = elapsed < .65 ? 0 : elapsed < IMPACT_AT ? Math.min(1,(elapsed-.65)*2.5) : Math.max(0,1-(elapsed-IMPACT_AT)/.55);
     orb.current.scale.setScalar(Math.max(.001, attack ? energy : 0));
     aura.current.scale.setScalar(Math.max(.001, attack && madara ? energy : 0));
@@ -66,14 +75,14 @@ export default function BattleCinematic({ originalView, battle, lowQuality, onRe
     if (f.done) { finished.current = true; onDone(); }
   });
   return <>
-    <Html fullscreen position={[.4,1.05,0]} style={{pointerEvents:'none'}} zIndexRange={[25,0]}><div className="battle-title" data-testid="battle-cinematic" data-phase={phase}><span>{battle.preview?'ANIMATION PREVIEW':'CONFIRMED BATTLE'}</span><strong>{battle.kind==='attack' ? naruto?'RASENGAN':madara?'SUSANOO STRIKE':'FINAL IMPACT' : 'DEFEAT'}</strong><small>{battle.attacker.character.name} <i>vs</i> {battle.victim.character.name}</small></div></Html>
+    <Html fullscreen position={[.4,1.05,0]} style={{pointerEvents:'none'}} zIndexRange={[25,0]}><div className="battle-title" data-testid="battle-cinematic" data-phase={phase}><span>{battle.preview?'ANIMATION PREVIEW':'CONFIRMED BATTLE'}</span><strong>{battle.kind==='attack' ? isAnimatedCharacter(characterId)?techniques[characterId].name:'FINAL IMPACT' : 'DEFEAT'}</strong><small>{battle.attacker.character.name} <i>vs</i> {battle.victim.character.name}</small></div></Html>
     <group visible={!returning} raycast={()=>null}>
       <mesh position={[0,-.08,0]} receiveShadow><cylinderGeometry args={[2.7,2.9,.12,64]}/><meshStandardMaterial color="#151d25" metalness={.35} roughness={.6}/></mesh>
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.01,0]}><ringGeometry args={[2.4,2.42,64]}/><meshBasicMaterial color="#607c9c" transparent opacity={.45}/></mesh>
-      <group ref={attacker} position={[-.9,0,0]}><group rotation={[0,Math.PI/2,0]}><Figurine character={battle.attacker.character} attackPose={battle.kind==='attack' && (naruto||madara)}/></group></group>
+      <group ref={attacker} position={[-.9,0,0]}><group rotation={[0,Math.PI/2,0]}><Figurine character={battle.attacker.character} attackPose={battle.kind==='attack' && (naruto||madara||reference)}/></group></group>
       <group position={[.88,0,0]} rotation={[0,-Math.PI/2,0]}><group ref={victim}><Figurine character={battle.victim.character}/></group></group>
       <group ref={orb}>
-        {naruto ? <>
+        {reference ? <TechniqueEnergy characterId={characterId} lowQuality={lowQuality} cinematic/> : naruto ? <>
           <mesh><sphereGeometry args={[.22,lowQuality?12:24,16]}/><meshBasicMaterial color="#caffff" transparent opacity={.95} blending={AdditiveBlending} depthWrite={false}/></mesh>
           {[0,1,2,3].map(i=><mesh key={i} rotation={[i*.85,i*.7,i]}><torusGeometry args={[.27+i*.025,.013,6,48]}/><meshBasicMaterial color={color} transparent blending={AdditiveBlending} depthWrite={false}/></mesh>)}
           {Array.from({length:lowQuality?12:28},(_,i)=><mesh key={i} position={[Math.sin(i*2.4)*.38,Math.cos(i*1.7)*.3,Math.cos(i*2.4)*.38]}><sphereGeometry args={[.016,6,4]}/><meshBasicMaterial color={color} blending={AdditiveBlending}/></mesh>)}
@@ -87,6 +96,7 @@ export default function BattleCinematic({ originalView, battle, lowQuality, onRe
         {[0,1,2,3,4].map(i=><mesh key={i} position={[0,.65+i*.29,0]} rotation={[Math.PI/2,0,0]} scale={[.9-i*.08,.5,1]}><torusGeometry args={[.78,.035,6,40,Math.PI*1.8]}/><meshBasicMaterial color="#94b6ff" transparent opacity={.6} blending={AdditiveBlending} depthWrite={false}/></mesh>)}
         <mesh position={[0,2.3,0]} scale={[.65,1,.6]}><octahedronGeometry args={[.36]}/><meshBasicMaterial color="#bfd6ff" wireframe transparent opacity={.7}/></mesh>
       </group>
+      {battle.kind==='defeat' && hasReferenceEffect(effectId) && isAnimatedCharacter(effectId) && <group position={[.88,0,0]}><TechniqueEnergy characterId={effectId} lowQuality={lowQuality} cinematic defeat/></group>}
       <group ref={impact} position={target} visible={false}>
         <mesh><sphereGeometry args={[.3,12,8]}/><meshBasicMaterial color={color} wireframe transparent blending={AdditiveBlending} depthWrite={false}/></mesh>
         {[0,1,2].map(i=><mesh key={i} rotation={[i*.8,Math.PI/2,i]}><torusGeometry args={[.45+i*.15,.025,6,32]}/><meshBasicMaterial color={color} transparent blending={AdditiveBlending} depthWrite={false}/></mesh>)}

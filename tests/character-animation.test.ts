@@ -29,3 +29,17 @@ it('triggers only committed Naruto/Madara captures and ignores undo or presence 
     expect(capturePerformer(before,after,{from:'e2',to:'e4'})).toBeNull();
   }
 });
+
+import { movePerformer } from '../src/scene/characterAnimation';
+import { techniques, referenceCharacters } from '../src/scene/techniques';
+it.each(referenceCharacters)('recognizes %s captures and forward arrivals without replaying undo',id=>{
+  const before=[{square:'c4',character:{id}},{square:'d5',character:{id:'enemy'}}];
+  const captured=[{square:'d5',character:{id}}];
+  expect(capturePerformer(before,captured,{from:'c4',to:'d5'})).toBe(id);
+  const moved=[{square:'c5',character:{id}},before[1]];
+  expect(movePerformer(before,moved,{from:'c4',to:'c5'})).toBe(id);
+  expect(movePerformer(moved,moved,{from:'c4',to:'c5'})).toBeNull();
+  expect(movePerformer(moved,before,{from:'c4',to:'c5'})).toBeNull();
+  expect(capturePerformer(captured,before,{from:'c4',to:'d5'})).toBeNull();
+  expect(techniques[id].name.length).toBeGreaterThan(5);
+});

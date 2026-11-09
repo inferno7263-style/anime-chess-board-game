@@ -1,4 +1,5 @@
-export type CharacterAnimation = { characterId: 'naruto' | 'madara'; kind: 'attack' | 'defeat'; nonce: number };
+import { isAnimatedCharacter, hasReferenceEffect, type AnimatedCharacterId } from './techniques';
+export type CharacterAnimation = { characterId: AnimatedCharacterId; kind: 'attack' | 'defeat'; nonce: number };
 export const animationDuration = (kind: CharacterAnimation['kind']) => kind === 'attack' ? 2.4 : 3;
 export function animationPose(kind: CharacterAnimation['kind'], elapsed: number, reducedMotion = false) {
   const progress = Math.min(1, Math.max(0, elapsed / animationDuration(kind)));
@@ -18,7 +19,20 @@ export function capturePerformer(
 ): CharacterAnimation['characterId'] | null {
   if (!move || before.length !== after.length + 1) return null;
   const attacker = after.find(piece => piece.square === move.to);
-  if (!attacker || !['naruto', 'madara'].includes(attacker.character.id)) return null;
+  if (!attacker || !isAnimatedCharacter(attacker.character.id)) return null;
   return before.some(piece => piece.character.id === attacker.character.id && piece.square === move.from)
     ? attacker.character.id as CharacterAnimation['characterId'] : null;
+}
+
+/** Small arrival effects require a forward transition, not selection/presence/undo. */
+export function movePerformer(
+  before: { square: string; character: { id: string } }[],
+  after: { square: string; character: { id: string } }[],
+  move: { from: string; to: string } | null,
+): AnimatedCharacterId | null {
+  if (!move || before.length !== after.length) return null;
+  const actor = after.find(p => p.square === move.to);
+  if (!actor || !hasReferenceEffect(actor.character.id)) return null;
+  return before.some(p => p.square === move.from && p.character.id === actor.character.id)
+    ? actor.character.id as AnimatedCharacterId : null;
 }

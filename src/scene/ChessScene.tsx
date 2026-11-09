@@ -7,7 +7,7 @@ import Figurine from './Figurine'
 import CharacterPerformance from './CharacterPerformance'
 import BattleCinematic, { type CameraView } from './BattleCinematic'
 import { captureBattle, type BattleEvent } from './battleTimeline'
-import { capturePerformer, type CharacterAnimation } from './characterAnimation'
+import { capturePerformer, movePerformer, type CharacterAnimation } from './characterAnimation'
 import type { BoardPiece, ChessSceneProps } from './types'
 import { getSceneFov, sceneCameraPosition, sceneCameraTarget } from './camera'
 
@@ -182,12 +182,12 @@ function World(props:ChessSceneProps) {
   const originalView=useRef<CameraView|null>(null)
   useEffect(()=>{if(!battle)originalView.current=null},[Boolean(battle)])
   const [boardRevealed,setBoardRevealed]=useState(false)
-  const beginBattle=(event:Omit<BattleEvent,'nonce'>)=>{if(!originalView.current)originalView.current={position:camera.position.clone(),rotation:camera.quaternion.clone(),fov:(camera as PerspectiveCamera).fov};setBoardRevealed(false);setCaptured([]);setBattle({...event,nonce:++sequence.current})}
+  const beginBattle=(event:Omit<BattleEvent,'nonce'>)=>{if(!originalView.current)originalView.current={position:camera.position.clone(),rotation:camera.quaternion.clone(),fov:(camera as PerspectiveCamera).fov};setBoardRevealed(false);setCaptured([]);setAnimations([]);setBattle({...event,nonce:++sequence.current})}
   useEffect(()=>{props.onCinematicChange?.(Boolean(battle));return()=>props.onCinematicChange?.(false)},[Boolean(battle),props.onCinematicChange])
   useEffect(()=>{setBattle(null)},[props.skipCinematic,props.cinematicEffects])
   useEffect(()=>{setBattle(null);setAnimations([]);previous.current=props.pieces},[props.sceneKey])
   const reducedMotion=useMemo(()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches,[])
-  const perform=(characterId:'naruto'|'madara',kind:'attack'|'defeat')=>setAnimations(old=>[...old.filter(a=>a.characterId!==characterId),{characterId,kind,nonce:++sequence.current}])
+  const perform=(characterId:CharacterAnimation['characterId'],kind:'attack'|'defeat')=>setAnimations(old=>[...old.filter(a=>a.characterId!==characterId),{characterId,kind,nonce:++sequence.current}])
   useEffect(()=>{
     const preview=props.animationPreview
     if(!preview || props.cinematicEffects===false) return
@@ -214,6 +214,8 @@ function World(props:ChessSceneProps) {
         if(props.cinematicEffects!==false && attacker) perform(attacker,'attack')
         const ids=new Set(props.pieces.map(p=>p.character.id));setCaptured(old=>[...old,...previous.current.filter(p=>!ids.has(p.character.id))])
       }}
+    const arrival=movePerformer(previous.current,props.pieces,props.lastMove)
+    if(arrival && props.cinematicEffects!==false && !battle) perform(arrival,'attack')
     if(props.pieces.length>previous.current.length){setAnimations([]);setBattle(null)}
     previous.current=props.pieces
   },[props.pieces])
