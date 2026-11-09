@@ -155,3 +155,53 @@ test('a confirmed Mikasa capture launches her cross slash and undo restores both
   await expect(square(page,'c4')).toHaveAttribute('aria-label',/Mikasa/);
   await expect(square(page,'d5')).toHaveAttribute('aria-label',/Blackbeard/);
 });
+
+test('all remaining Heroes play reference-inspired attacks and defeats without changing chess state',async({page})=>{
+  test.setTimeout(360000);
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await open(page);
+  const profiles = {
+    ichigo:'GETSUGA TENSHO',gojo:'HOLLOW PURPLE',goku:'KAMEHAMEHA',luffy:'GUM-GUM · ELEPHANT GUN',
+    zenitsu:'THUNDERCLAP AND FLASH',killua:'GODSPEED · THUNDERBOLT',tanjiro:'HINOKAMI KAGURA',
+    gon:'JAJANKEN · ROCK',zoro:'THREE-SWORD STYLE · DRAGON TWISTER',yuno:'SPIRIT DIVE · WIND MAGIC',yami:'DARK MAGIC · BLACK HOLE',
+  };
+  for(const [id,name] of Object.entries(profiles)){
+    for(const kind of ['attack','defeat']){
+      await page.getByRole('button',{name:'Settings',exact:true}).click();
+      await page.getByRole('button',{name:`Preview ${id} ${kind}`,exact:true}).click();
+      const battle=page.getByTestId('battle-cinematic');
+      await expect(battle).toBeVisible();
+      await expect(battle).toContainText(kind==='attack'?name:'DEFEAT');
+      await expect(battle).toHaveAttribute('data-phase',/charge|strike|defeat/);
+      if(kind==='attack'&&['gojo','goku','luffy','tanjiro','yuno','ichigo'].includes(id)){
+        await page.screenshot({path:`/tmp/hero-${id}-effect.png`});
+      }
+      if(id!=='yami'||kind!=='defeat'){
+        const skip=page.getByRole('button',{name:'Skip animation',exact:true});
+        if(await skip.count())await skip.click();
+      }
+      await expect(battle).toHaveCount(0);
+      await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test('new Hero beam, crescent and vortex shaders render with stable aim and no WebGL errors',async({page})=>{
+  test.setTimeout(120000);
+  const errors:string[]=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('console',message=>{if(message.type()==='error'&&/shader|WebGLProgram/i.test(message.text()))errors.push(message.text());});
+  await page.setViewportSize({width:1100,height:1200});
+  await open(page);
+  for(const id of ['gojo','goku','ichigo']){
+    await preview(page,id);
+    await expect(page.getByTestId('battle-cinematic')).toHaveAttribute('data-phase',/charge|strike/);
+    await page.screenshot({path:`/tmp/hero-final-${id}.png`,fullPage:true});
+    const skip=page.getByRole('button',{name:'Skip animation',exact:true});
+    if(await skip.count())await skip.click();
+    await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+    await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
+  }
+  expect(errors).toEqual([]);
+});

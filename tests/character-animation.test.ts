@@ -43,3 +43,31 @@ it.each(referenceCharacters)('recognizes %s captures and forward arrivals withou
   expect(capturePerformer(captured,before,{from:'c4',to:'d5'})).toBeNull();
   expect(techniques[id].name.length).toBeGreaterThan(5);
 });
+
+import { roster } from '../src/data/roster';
+import { heroTechniques, isAnimatedCharacter, remainingHeroIds } from '../src/scene/techniques';
+import { energyCrescent, lightningPath } from '../src/scene/heroGeometry';
+it('gives every White Hero a technique while keeping unrequested villains unchanged',()=>{
+  const heroes=roster.filter(c=>c.color==='w');
+  expect(heroes).toHaveLength(16);
+  for(const hero of heroes) expect(isAnimatedCharacter(hero.id),hero.name).toBe(true);
+  expect(remainingHeroIds).toHaveLength(11);
+  for(const id of remainingHeroIds) expect(heroes.some(c=>c.id===id)).toBe(true);
+  expect(isAnimatedCharacter('sukuna')).toBe(false);
+  expect(heroTechniques.luffy.family).toBe('punch');
+  expect(heroTechniques.gojo.family).toBe('void');
+  expect(heroTechniques.goku.family).toBe('beam');
+});
+it('builds finite open slash geometry with tapered ends at both quality levels',()=>{
+  for(const segments of [28,64]) for(const fire of [false,true]){
+    const geometry=energyCrescent(.85,.28,segments,fire);
+    const positions=geometry.getAttribute('position');
+    expect(positions.count).toBe((segments+1)*2);
+    expect([...positions.array].every(Number.isFinite)).toBe(true);
+    expect(geometry.index?.count).toBe(segments*6);
+    expect(positions.getX(0)).toBeCloseTo(positions.getX(1));
+    geometry.dispose();
+  }
+  expect(lightningPath(1)).toEqual(lightningPath(1));
+  expect(lightningPath(2)).not.toEqual(lightningPath(1));
+});

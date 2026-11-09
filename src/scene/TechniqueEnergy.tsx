@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { AdditiveBlending, CanvasTexture, BufferGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, TubeGeometry, CatmullRomCurve3, Vector3 } from 'three';
-import { techniques, type AnimatedCharacterId } from './techniques';
+import HeroTechniqueEnergy from './HeroTechniqueEnergy';
+import { heroTechniques, techniques, type HeroTechniqueId, type AnimatedCharacterId } from './techniques';
 
 /** A tapered three-dimensional slash ribbon, rather than a closed neon hoop. */
 function slashGeometry(radius: number, width: number, sweep: number, segments: number) {
@@ -53,7 +54,10 @@ export default function TechniqueEnergy({ characterId, lowQuality, reducedMotion
       }
     });
     if(!reducedMotion){
-      blade.current.rotation.set(mikasa?t*2.5:Math.sin(t*3)*.18,nezuko?t*1.8:t*.65,asta?-.65+Math.sin(t*4)*.3:t*.35);
+      // New Hero families animate internally: keep beams aimed at the target
+      // and crescent / vortex faces visible instead of rotating them edge-on.
+      if (characterId in heroTechniques) blade.current.rotation.set(0,0,0);
+      else blade.current.rotation.set(mikasa?t*2.5:Math.sin(t*3)*.18,nezuko?t*1.8:t*.65,asta?-.65+Math.sin(t*4)*.3:t*.35);
       particles.current.rotation.y=t*(mikasa?-1.8:.6);
       particles.current.children.forEach((particle,i)=>{
         particle.position.y=.1+((t*.55+i*.19)%1.8);
@@ -64,7 +68,7 @@ export default function TechniqueEnergy({ characterId, lowQuality, reducedMotion
   const glow=(tone: string=color,alpha=.85)=><meshBasicMaterial color={tone} transparent opacity={alpha} userData={{alpha}} blending={AdditiveBlending} depthWrite={false} side={DoubleSide} toneMapped={false}/>;
   return <group ref={root} raycast={()=>null}>
     <group ref={blade} position={[0,.65,0]}>
-      {mikasa ? <>{[0,1,2].map(i=><group key={i} rotation={[i*.95,.3+i*.6,i*2.1]} scale={1+i*.13}>
+      {characterId in heroTechniques ? <HeroTechniqueEnergy characterId={characterId as HeroTechniqueId} lowQuality={lowQuality} reducedMotion={reducedMotion} defeat={defeat}/> : mikasa ? <>{[0,1,2].map(i=><group key={i} rotation={[i*.95,.3+i*.6,i*2.1]} scale={1+i*.13}>
         <mesh geometry={ribbons[0]}><meshBasicMaterial color="#4e0c08" side={DoubleSide} transparent userData={{alpha:.8}} depthWrite={false}/></mesh>
         <mesh geometry={ribbons[1]} position={[0,0,.008]}>{glow('#ffc16b')}</mesh>
         <mesh geometry={ribbons[1]} scale={.95} position={[0,0,.012]}>{glow('#fff2c2')}</mesh>
