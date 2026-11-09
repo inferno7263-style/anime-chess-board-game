@@ -68,7 +68,7 @@ export default function TechniqueEnergy({ characterId, lowQuality, reducedMotion
   const glow=(tone: string=color,alpha=.85)=><meshBasicMaterial color={tone} transparent opacity={alpha} userData={{alpha}} blending={AdditiveBlending} depthWrite={false} side={DoubleSide} toneMapped={false}/>;
   return <group ref={root} raycast={()=>null}>
     <group ref={blade} position={[0,.65,0]}>
-      {characterId in heroTechniques ? <HeroTechniqueEnergy characterId={characterId as HeroTechniqueId} lowQuality={lowQuality} reducedMotion={reducedMotion} defeat={defeat}/> : mikasa ? <>{[0,1,2].map(i=><group key={i} rotation={[i*.95,.3+i*.6,i*2.1]} scale={1+i*.13}>
+      {characterId==='luffy' ? null : characterId in heroTechniques ? <HeroTechniqueEnergy characterId={characterId as HeroTechniqueId} lowQuality={lowQuality} reducedMotion={reducedMotion} defeat={defeat}/> : mikasa ? <>{[0,1,2].map(i=><group key={i} rotation={[i*.95,.3+i*.6,i*2.1]} scale={1+i*.13}>
         <mesh geometry={ribbons[0]}><meshBasicMaterial color="#4e0c08" side={DoubleSide} transparent userData={{alpha:.8}} depthWrite={false}/></mesh>
         <mesh geometry={ribbons[1]} position={[0,0,.008]}>{glow('#ffc16b')}</mesh>
         <mesh geometry={ribbons[1]} scale={.95} position={[0,0,.012]}>{glow('#fff2c2')}</mesh>

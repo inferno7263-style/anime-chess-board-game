@@ -1,3 +1,4 @@
+import { Mesh } from 'three'
 import { Component, Suspense, useMemo, type ReactNode } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { posePlaceholderArms } from './placeholderPose'
@@ -9,19 +10,22 @@ class ModelBoundary extends Component<{ children: ReactNode; fallback: ReactNode
   render() { return this.state.failed ? this.props.fallback : this.props.children }
 }
 
-function GLBFigurine({ url, attackPose = false }: { url: string; attackPose?: boolean }) {
+function GLBFigurine({ url, attackPose = false, elasticArm = false }: { url: string; attackPose?: boolean; elasticArm?: boolean }) {
   const { scene } = useGLTF(url)
   const model = useMemo(() => {
     const copy = scene.clone(true)
     copy.traverse(object => { object.castShadow = true; object.receiveShadow = true })
+    if (elasticArm && copy.children.some(c=>c.name.startsWith('Placeholder'))) copy.traverse(object=>{
+      if(object instanceof Mesh && object.position.x>.13 && object.position.x<.25 && object.position.y>.44 && object.position.y<.74)object.visible=false;
+    });
     if (attackPose) posePlaceholderArms(copy)
     return copy
-  }, [scene, attackPose])
+  }, [scene, attackPose, elasticArm])
   return <primitive object={model} />
 }
 
 /** Lightweight geometry remains playable while replacement GLBs load. */
-function ProceduralFigurine({ character }: { character: Character }) {
+function ProceduralFigurine({ character, elasticArm=false }: { character: Character; elasticArm?: boolean }) {
   const a = character.appearance
   const outfit = a?.outfit || (character.color === 'w' ? '#ded6bc' : '#252331')
   const hair = a?.hair || (character.color === 'w' ? '#edbf63' : '#ece8e4')
@@ -34,8 +38,8 @@ function ProceduralFigurine({ character }: { character: Character }) {
       {[-1,1].map(side => <group key={side}>
         <mesh castShadow position={[side*.087,.16,0]}><cylinderGeometry args={[.058,.052,.29,8]}/><meshStandardMaterial color={outfit} roughness={.7}/></mesh>
         <mesh castShadow position={[side*.087,.024,.04]}><boxGeometry args={[.12,.07,.18]}/><meshStandardMaterial color="#292832" roughness={.7}/></mesh>
-        <mesh castShadow position={[side*.18,.48,0]} rotation={[0,0,side*.16]}><capsuleGeometry args={[.048,.25,3,6]}/><meshStandardMaterial color={outfit} roughness={.7}/></mesh>
-        <mesh castShadow position={[side*.204,.325,0]}><sphereGeometry args={[.049,8,6]}/><meshStandardMaterial color={skin}/></mesh>
+        <mesh visible={!elasticArm||side<0} castShadow position={[side*.18,.48,0]} rotation={[0,0,side*.16]}><capsuleGeometry args={[.048,.25,3,6]}/><meshStandardMaterial color={outfit} roughness={.7}/></mesh>
+        <mesh visible={!elasticArm||side<0} castShadow position={[side*.204,.325,0]}><sphereGeometry args={[.049,8,6]}/><meshStandardMaterial color={skin}/></mesh>
       </group>)}
       <mesh castShadow position={[0,.43,0]}><cylinderGeometry args={[.135,.12,.33,8]}/><meshStandardMaterial color={outfit} roughness={.65}/></mesh>
       <mesh position={[0,.305,0]}><cylinderGeometry args={[.126,.126,.045,8]}/><meshStandardMaterial color={character.accent}/></mesh>
@@ -49,9 +53,9 @@ function ProceduralFigurine({ character }: { character: Character }) {
   </group>
 }
 
-export default function Figurine({ character, attackPose = false }: { character: Character; attackPose?: boolean }) {
-  const fallback = <ProceduralFigurine character={character}/>
+export default function Figurine({ character, attackPose = false, elasticArm=false }: { character: Character; attackPose?: boolean; elasticArm?:boolean }) {
+  const fallback = <ProceduralFigurine character={character} elasticArm={elasticArm}/>
   return character.modelUrl
-    ? <ModelBoundary fallback={fallback}><Suspense fallback={fallback}><GLBFigurine url={character.modelUrl} attackPose={attackPose}/></Suspense></ModelBoundary>
+    ? <ModelBoundary fallback={fallback}><Suspense fallback={fallback}><GLBFigurine url={character.modelUrl} attackPose={attackPose} elasticArm={elasticArm}/></Suspense></ModelBoundary>
     : fallback
 }

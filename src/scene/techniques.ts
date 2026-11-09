@@ -3,7 +3,7 @@ export const heroTechniques = {
   ichigo: { name: 'GETSUGA TENSHO', color: '#62d9ff', caption: 'Ichigo · Azure crescent', family: 'slash' },
   gojo: { name: 'HOLLOW PURPLE', color: '#cb76ff', caption: 'Gojo · Hollow Purple', family: 'void' },
   goku: { name: 'KAMEHAMEHA', color: '#38dfff', caption: 'Goku · Kamehameha', family: 'beam' },
-  luffy: { name: 'GUM-GUM · ELEPHANT GUN', color: '#ff6854', caption: 'Luffy · Elephant Gun', family: 'punch' },
+  luffy: { name: 'GUM-GUM · ELASTIC PISTOL', color: '#ff6854', caption: 'Luffy · Elastic Pistol', family: 'punch' },
   zenitsu: { name: 'THUNDERCLAP AND FLASH', color: '#b4e9ff', caption: 'Zenitsu · Thunderclap', family: 'lightning' },
   killua: { name: 'GODSPEED · THUNDERBOLT', color: '#77bfff', caption: 'Killua · Godspeed', family: 'lightning' },
   tanjiro: { name: 'HINOKAMI KAGURA', color: '#ff8b30', caption: 'Tanjiro · Hinokami Kagura', family: 'fire' },

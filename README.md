@@ -104,3 +104,7 @@ The remaining eleven Heroes now have their own reference-inspired effects, compl
 ## Elastic-arm movement proof
 
 `/luffy-demo.html` is a separate interactive prototype with play/pause and timeline scrubbing. It uses original simple geometry and a real `SkinnedMesh` with five bones and normalized skin weights for Luffy's attached stretching arm. The body turns toward a neutral training partner, the hand follows a shoulder-to-chest trajectory, and the arm retracts. This is a technical deformation proof, not a finished full-body rig or a final replacement for the game's attacks. It makes no changes to chess state. Build with the normal `npm run build`; the existing Node server serves the resulting demo page alongside the game.
+
+### Integrated Luffy attack
+
+The main game's Settings preview and Luffy capture close-up now use **Gum-Gum · Elastic Pistol**. The original GLB's right-arm meshes are hidden only during the attack; a five-bone skinned arm is mounted at that model's shoulder, follows its facing transform, reaches the actual opponent's chest, and retracts. Luffy stays at striking distance instead of sliding into the opponent. The floating Elephant Gun effect is no longer rendered for Luffy. Reduced-motion in-board performances use the same attached arm. Existing replacement models are not modified by the placeholder-only mesh-hiding helper.

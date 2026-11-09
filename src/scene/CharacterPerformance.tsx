@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { AdditiveBlending, Group, Mesh } from 'three';
+import LuffyElasticArm from './LuffyElasticArm';
 import Figurine from './Figurine';
 import TechniqueEnergy from './TechniqueEnergy';
 import { hasReferenceEffect, isAnimatedCharacter, techniques } from './techniques';
@@ -45,7 +46,7 @@ export default function CharacterPerformance({ character, animation, lowQuality,
     if (elapsed.current >= animationDuration(animation.kind)) setPlaying(false);
   });
   return <>
-    <group ref={body}><Figurine character={character}/></group>
+    <group ref={body}><Figurine character={character} elasticArm={character.id==='luffy'&&playing&&animation?.kind==='attack'}/>{character.id==='luffy'&&playing&&animation?.kind==='attack'&&<LuffyElasticArm time={elapsed}/>}</group>
     {playing && animation && <>
       <Html position={[0, naruto ? 1.85 : 2.8, 0]} center style={{ pointerEvents: 'none', whiteSpace: 'nowrap' }} zIndexRange={[25,0]}><span className="technique-label" style={{ borderColor: color, color }} role="status">{animation.kind === 'defeat' ? `${character.name.toUpperCase()} · DEFEATED` : isAnimatedCharacter(character.id) ? techniques[character.id].name : 'IMPACT'}</span></Html>
       <group ref={effects} raycast={()=>null}>

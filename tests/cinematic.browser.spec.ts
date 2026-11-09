@@ -161,7 +161,7 @@ test('all remaining Heroes play reference-inspired attacks and defeats without c
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await open(page);
   const profiles = {
-    ichigo:'GETSUGA TENSHO',gojo:'HOLLOW PURPLE',goku:'KAMEHAMEHA',luffy:'GUM-GUM · ELEPHANT GUN',
+    ichigo:'GETSUGA TENSHO',gojo:'HOLLOW PURPLE',goku:'KAMEHAMEHA',luffy:'GUM-GUM · ELASTIC PISTOL',
     zenitsu:'THUNDERCLAP AND FLASH',killua:'GODSPEED · THUNDERBOLT',tanjiro:'HINOKAMI KAGURA',
     gon:'JAJANKEN · ROCK',zoro:'THREE-SWORD STYLE · DRAGON TWISTER',yuno:'SPIRIT DIVE · WIND MAGIC',yami:'DARK MAGIC · BLACK HOLE',
   };
@@ -204,4 +204,43 @@ test('new Hero beam, crescent and vortex shaders render with stable aim and no W
     await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
   }
   expect(errors).toEqual([]);
+});
+
+
+test('the GAME Luffy preview uses the attached elastic arm, not Elephant Gun',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await open(page);
+ await page.getByRole('button',{name:'Settings',exact:true}).click();
+ await expect(page.getByText('Luffy · Elastic Pistol',{exact:true})).toBeVisible();
+ await expect(page.getByText('Luffy · Elephant Gun',{exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Preview luffy attack',exact:true}).click();
+ const battle=page.getByTestId('battle-cinematic');
+ await expect(battle).toHaveAttribute('data-attack-style','elastic-arm');
+ await expect(battle).toContainText('ELASTIC PISTOL');
+ await expect(battle).toHaveAttribute('data-phase',/strike|defeat/);
+ await page.screenshot({path:'/tmp/luffy-integrated.png',fullPage:true});
+ await expect(battle).toHaveCount(0);
+ await expect(page.locator('.count-badge')).toHaveText('00 MOVES');
+ expect(errors).toEqual([]);
+});
+
+test('a legal Luffy capture uses Elastic Pistol and undo restores the captured piece',async({page})=>{
+ await open(page);await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+ for(const [from,to] of [['a2','a4'],['a7','a5'],['a1','a3'],['b7','b5'],['a3','b3'],['b5','b4']])await move(page,from,to);
+ await page.getByRole('button',{name:'3D view',exact:true}).click();await page.waitForTimeout(500);
+ const bounds=(await page.locator('canvas').boundingBox())!;
+ const camera=new PerspectiveCamera(getSceneFov(bounds.width/bounds.height),bounds.width/bounds.height,.1,100);
+ camera.position.set(...sceneCameraPosition);camera.lookAt(...sceneCameraTarget);camera.updateMatrixWorld();
+ const v=new Vector3(-2.5,.68,1.5).project(camera);
+ await page.mouse.click(bounds.x+(v.x+1)*bounds.width/2,bounds.y+(1-v.y)*bounds.height/2);
+ await expect(page.locator('.selection-toast strong')).toContainText('Luffy');
+ await page.getByRole('button',{name:'Capture to B4',exact:true}).click();
+ await expect(page.getByTestId('battle-cinematic')).toHaveAttribute('data-attack-style','elastic-arm');
+ await expect(page.getByTestId('battle-cinematic')).toContainText('Pain');
+ await expect(page.locator('.count-badge')).toHaveText('07 MOVES');
+ await page.getByRole('button',{name:'Undo move',exact:true}).click();
+ await expect(page.getByTestId('battle-cinematic')).toHaveCount(0);
+ await page.getByRole('button',{name:'2D accessible board',exact:true}).click();
+ await expect(square(page,'b3')).toHaveAttribute('aria-label',/Luffy/);
+ await expect(square(page,'b4')).toHaveAttribute('aria-label',/Pain/);
 });
